@@ -10,7 +10,7 @@ import shared
 
 struct ContentView: View {
     
-    var database : AppDatabase = DatabaseKt.getRoomDatabase(builder: DatabaseKt.getDatabaseBuilder())
+    var database: Database = DatabaseKt.getDatabase()
     
     var body: some View {
         VStack {
@@ -19,15 +19,16 @@ struct ContentView: View {
                 .foregroundStyle(.tint)
             Text("Hello, world!")
             Button("Click to insert") {
-                var movieToInsert: MovieEntity = MovieEntity(id: 0, title: "Superman", content: "Action")
+                let movieToInsert: MovieEntity = MovieEntity()
+                movieToInsert.title = "Superman"
                 
                 Task {
-                    var count: Int = try await database.getDao().count().intValue
+                    var count: Int = try await database.movieDao.count().intValue
                     print("Count pre insert \(count)")
                     
-                    try await database.getDao().insert(item: movieToInsert)
+                    try await database.movieDao.insert(item: movieToInsert)
                     
-                    var count2: Int = try await database.getDao().count().intValue
+                    var count2: Int = try await database.movieDao.count().intValue
                     print("Count pre insert \(count2)")
                 }
             }

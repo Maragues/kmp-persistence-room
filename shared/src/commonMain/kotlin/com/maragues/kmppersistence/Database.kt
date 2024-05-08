@@ -1,47 +1,47 @@
 package com.maragues.kmppersistence
 
-import androidx.room.Dao
-import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.Insert
-import androidx.room.PrimaryKey
-import androidx.room.Query
-import androidx.room.RoomDatabase
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.flow.Flow
+import io.realm.kotlin.Realm
+import io.realm.kotlin.RealmConfiguration
+import io.realm.kotlin.types.RealmObject
+import io.realm.kotlin.types.annotations.PrimaryKey
+import org.mongodb.kbson.ObjectId
+import io.realm.kotlin.ext.query
 
-@Database(entities = [MovieEntity::class], version = 1)
-abstract class AppDatabase : RoomDatabase() {
-    abstract fun getDao(): MovieDao
+interface Database {
+    val movieDao: MovieDao
 }
 
-@Dao
 interface MovieDao {
-    @Insert
+    suspend fun count(): Long
     suspend fun insert(item: MovieEntity)
-
-    @Query("SELECT count(*) FROM MovieEntity")
-    suspend fun count(): Int
-
-    @Query("SELECT * FROM MovieEntity")
-    fun getAllAsFlow(): Flow<List<MovieEntity>>
 }
 
-@Entity
-data class MovieEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val title: String,
-    val content: String
-)
+class MovieEntity : RealmObject {
+    @PrimaryKey
+    var _id: ObjectId = ObjectId()
+    var title: String = ""
+}
 
-fun getRoomDatabase(
-    builder: RoomDatabase.Builder<AppDatabase>
-): AppDatabase {
-    return builder
-        .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.IO)
-        .build()
+private val config = RealmConfiguration.create(schema = setOf(MovieEntity::class))
+internal val realm: Realm = Realm.open(config)
+
+@Suppress("unused")
+fun getDatabase(): Database {
+    return RealmDatabase(realm = realm)
+}
+
+internal class RealmDatabase(realm: Realm) : Database {
+    override val movieDao: MovieDao = RealmMovieDao(realm = realm)
+}
+
+internal class RealmMovieDao(private val realm: Realm) : MovieDao {
+    override suspend fun count(): Long {
+        return realm.query<MovieEntity>().count().find()
+    }
+
+    override suspend fun insert(item: MovieEntity) {
+        realm.writeBlocking {
+            copyToRealm(item)
+        }
+    }
 }
